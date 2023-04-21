@@ -70,3 +70,15 @@ async def get_product_by_id(id: str):
         "price": product.price,
         "quantity": product.quantity
     }
+
+
+@app.delete("/products/{id}")
+async def delete_product_by_id(id: str):
+    try:
+        product = Product.get(id)
+    except NotFoundError:
+        return JSONResponse(status_code=404, content={"message": "Product not found"})
+
+    product.delete(product.pk)
+
+    return JSONResponse(status_code=200, content={"message": "Product deleted"})
