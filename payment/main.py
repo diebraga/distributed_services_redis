@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 from starlette.requests import Request
 import httpx
+from redis_om.model.model import NotFoundError
 
 load_dotenv()
 
@@ -37,10 +38,35 @@ class Order(HashModel):
     fee: float
     total: float
     quantity: int
-    status: str # pendind | completed ? refunded
 
     class Meta:
         database = redis
+
+@app.get("/orders")
+async def get_orders():
+    try:
+        order_pks = Order.all_pks()
+        orders = list(map(formatOrder, order_pks))
+        return orders
+    except Exception as e:
+        print(f"Error retrieving orders from Redis: {e}")
+        return {"error": "Unable to retrieve orders"}
+
+def formatOrder(pk: str):
+    try:
+        order = Order.get(pk)
+        formatted_order = {
+            "pk": order.pk,
+            "product_id": order.product_id,
+            "price": order.price,
+            "fee": order.fee,
+            "total": order.total,
+            "quantity": order.quantity
+        }
+        return formatted_order
+    except Exception as e:
+        print(f"Error formatting order with pk {pk}: {e}")
+        return {"error": f"Unable to format order with pk {pk}"}
 
 
 @app.post("/orders")
@@ -48,13 +74,21 @@ async def create_order(request: Request):
     body = await request.json()
     url = products_url + "/products/" + body["id"]
 
-    print(url)
-    response = httpx.get(url)
+    product_response = httpx.get(url)
 
-    if response.status_code == 200:
-        # The product was found
-        product_data = response.json()
-        return (product_data)
+    if product_response.status_code == 200:
+        product_data = product_response.json()
+        order = Order(
+            product_id=body["id"],
+            price=product_data["price"],
+            fee=0.2 * product_data["price"],
+            total=1.2 * product_data["price"],
+            quantity=body["quantity"],
+        )
+
+        order.save()
+        return order
     else:
-    # The product was not found
-      print("Product not found")
+        # The product was not found
+        return "Product not found"
+

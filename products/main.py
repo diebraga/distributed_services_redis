@@ -41,6 +41,7 @@ class Product(HashModel):
 async def get_products():
     return list(map(formatProduct, Product.all_pks()))
 
+
 def formatProduct(pk: str):
     product = Product.get(pk)
 
