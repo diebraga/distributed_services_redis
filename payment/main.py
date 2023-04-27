@@ -6,6 +6,7 @@ import os
 from starlette.requests import Request
 import httpx
 from redis_om.model.model import NotFoundError
+from fastapi.responses import JSONResponse
 
 load_dotenv()
 
@@ -41,6 +42,24 @@ class Order(HashModel):
 
     class Meta:
         database = redis
+
+
+@app.get("/orders/{id}")
+async def get_order_by_id(id: str):
+    try:
+        order = Order.get(id)
+    except NotFoundError:
+        return JSONResponse(status_code=404, content={"message": "Order not found"})
+
+    return {
+        "id": order.pk,
+        "product_id": order.product_id,
+        "price": order.price,
+        "fee": order.fee,
+        "total": order.total,
+        "quantity": order.quantity
+    }
+
 
 @app.get("/orders")
 async def get_orders():
